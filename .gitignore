@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+build/
+*.js
+*.js.map
+*.d.ts
+
+# But keep config files
+!*.config.js
+!vite.config.ts
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Videos
+producer/videos/**/*.mp4
+producer/videos/**/*.avi
+producer/videos/**/*.mov
+producer/videos/**/*.mkv
+consumer/uploaded-videos/**/*.mp4
+consumer/uploaded-videos/**/*.avi
+consumer/uploaded-videos/**/*.mov
+consumer/uploaded-videos/**/*.mkv
+
+# Keep folder structure but ignore videos
+!producer/videos/folder1/.gitkeep
+!producer/videos/folder2/.gitkeep
+!producer/videos/folder3/.gitkeep
+!consumer/uploaded-videos/.gitkeep
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Test coverage
+coverage/
+.nyc_output/

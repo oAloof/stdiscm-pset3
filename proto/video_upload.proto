@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package video_upload;
+
+// The video upload service
+service VideoUploadService {
+  // Upload a video using client streaming (sends chunks)
+  rpc UploadVideo(stream VideoChunk) returns (UploadResponse);
+  
+  // Check queue status (bonus feature)
+  rpc CheckQueueStatus(QueueStatusRequest) returns (QueueStatusResponse);
+}
+
+// A chunk of video data
+message VideoChunk {
+  string filename = 1;          // Original filename
+  bytes data = 2;               // Chunk of video data
+  int32 chunk_number = 3;       // Sequence number of this chunk
+  bool is_last = 4;             // Is this the last chunk?
+  int32 producer_id = 5;        // Which producer is sending this
+}
+
+// Response after video upload
+message UploadResponse {
+  bool success = 1;             // Was the upload successful?
+  string message = 2;           // Success/error message
+  string video_id = 3;          // Unique ID assigned to the video
+  bool queue_full = 4;          // Was the queue full? (bonus)
+}
+
+// Request to check queue status
+message QueueStatusRequest {
+  // Empty for now
+}
+
+// Response with queue status
+message QueueStatusResponse {
+  int32 current_size = 1;       // Current number of items in queue
+  int32 max_size = 2;           // Maximum queue capacity
+  bool is_full = 3;             // Is queue at capacity?
+  float utilization = 4;        // Queue utilization percentage
+}
