@@ -1,3 +1,8 @@
+/**
+ * Shared TypeScript types for gRPC communication
+ * These types correspond to the protobuf definitions in video_upload.proto
+ */
+
 export interface VideoChunk {
   filename: string;
   data: Buffer;
@@ -14,7 +19,9 @@ export interface UploadResponse {
   queue_full: boolean;
 }
 
-export interface QueueStatusRequest { }
+export interface QueueStatusRequest {
+  // Empty for now
+}
 
 export interface QueueStatusResponse {
   current_size: number;

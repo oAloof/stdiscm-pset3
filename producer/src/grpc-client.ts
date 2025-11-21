@@ -1,7 +1,7 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
-import { UploadResponse, QueueStatusResponse, VideoChunk } from './types';
+import { UploadResponse, QueueStatusResponse, VideoChunk } from '../../proto/types';
 
 const PROTO_PATH = path.resolve(__dirname, '../../proto/video_upload.proto');
 
