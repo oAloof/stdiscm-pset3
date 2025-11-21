@@ -11,6 +11,10 @@ build/
 *.js.map
 *.d.ts
 
+# Proto compiled output
+proto/*.js
+proto/*.d.ts
+
 # But keep config files
 !*.config.js
 !vite.config.ts
