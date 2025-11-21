@@ -7,7 +7,7 @@ service VideoUploadService {
   // Upload a video using client streaming (sends chunks)
   rpc UploadVideo(stream VideoChunk) returns (UploadResponse);
   
-  // Check queue status (bonus feature)
+  // Check queue status
   rpc CheckQueueStatus(QueueStatusRequest) returns (QueueStatusResponse);
 }
 
@@ -16,8 +16,9 @@ message VideoChunk {
   string filename = 1;          // Original filename
   bytes data = 2;               // Chunk of video data
   int32 chunk_number = 3;       // Sequence number of this chunk
-  bool is_last = 4;             // Is this the last chunk?
+  bool is_last = 4;             // Indicator if this is the last chunk
   int32 producer_id = 5;        // Which producer is sending this
+  string md5_hash = 6;          // MD5 hash for duplicate detection
 }
 
 // Response after video upload
@@ -25,7 +26,7 @@ message UploadResponse {
   bool success = 1;             // Was the upload successful?
   string message = 2;           // Success/error message
   string video_id = 3;          // Unique ID assigned to the video
-  bool queue_full = 4;          // Was the queue full? (bonus)
+  bool queue_full = 4;          // Indicates if the queue was full
 }
 
 // Request to check queue status
