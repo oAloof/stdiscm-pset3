@@ -214,7 +214,7 @@ npm run dev
    - Queueing details
    - Producer-consumer concepts applied
    - Synchronization mechanisms used
-   - Implementation and justification of gRPC usage
+   - Implementation and justification of gRPC usage      
 
 ## 🔧 Development Commands
 
