@@ -1,3 +1,5 @@
+// Download extension vscode-proto3 to see syntax
+
 syntax = "proto3";
 
 package video_upload;
