@@ -11,12 +11,13 @@ dotenv.config();
 const HOST = process.env.CONSUMER_HOST || 'localhost';
 const PORT = process.env.CONSUMER_PORT || 50051;
 const CHUNK_SIZE = parseInt(process.env.CHUNK_SIZE || '1048576', 10);
-const PRODUCER_ID = parseInt(process.env.PRODUCER_ID || '1', 10);
+const NUM_PRODUCERS = parseInt(process.env.NUM_PRODUCERS || '1', 10);
 const VIDEO_FOLDERS = (process.env.VIDEO_FOLDERS || './videos').split(',');
 
-async function main() {
-  logger.info('Starting Producer...');
-  logger.info(`Configuration: Host=${HOST}, Port=${PORT}, ChunkSize=${CHUNK_SIZE}, ProducerID=${PRODUCER_ID}`);
+async function startProducerThread(id: number, folders: string[]) {
+  const logger = new Logger(`Producer-${id}`);
+  logger.info(`Starting Producer Thread ${id}`);
+  logger.info(`Assigned folders: ${folders.join(', ')}`);
 
   try {
     const client = new GrpcClient(HOST, PORT);
@@ -33,7 +34,7 @@ async function main() {
 
     // Discover videos
     const allVideos: string[] = [];
-    for (const folder of VIDEO_FOLDERS) {
+    for (const folder of folders) {
       try {
         // Resolve relative paths
         const resolvedFolder = path.resolve(folder);
@@ -62,7 +63,7 @@ async function main() {
         await new Promise<void>((resolve, reject) => {
           const stream = client.uploadVideo({
             filename: meta.filename,
-            producerId: PRODUCER_ID,
+            producerId: id,
             md5Hash: hash
           }, (err, response) => {
             if (err) {
@@ -85,7 +86,7 @@ async function main() {
               data: dataBuffer,
               chunk_number: chunkNum,
               is_last: false,
-              producer_id: PRODUCER_ID,
+              producer_id: id,
               md5_hash: hash
             });
 
@@ -102,7 +103,7 @@ async function main() {
               data: Buffer.alloc(0),
               chunk_number: chunkNum + 1,
               is_last: true,
-              producer_id: PRODUCER_ID,
+              producer_id: id,
               md5_hash: hash
             });
             stream.end();
@@ -126,6 +127,33 @@ async function main() {
   } catch (error) {
     logger.error('Failed to initialize producer:', error);
   }
+}
+
+async function main() {
+  const mainLogger = new Logger('Main');
+  mainLogger.info('Starting Multi-threaded Producer System...');
+  mainLogger.info(`Configuration: Host=${HOST}, Port=${PORT}, ChunkSize=${CHUNK_SIZE}, NumProducers=${NUM_PRODUCERS}`);
+
+  // Distribute folders among producers
+  const producerFolders: string[][] = Array.from({ length: NUM_PRODUCERS }, () => []);
+  VIDEO_FOLDERS.forEach((folder, index) => {
+    const producerIndex = index % NUM_PRODUCERS;
+    producerFolders[producerIndex].push(folder);
+  });
+
+  const producerPromises = [];
+  for (let i = 0; i < NUM_PRODUCERS; i++) {
+    const producerId = i + 1;
+    const folders = producerFolders[i];
+    if (folders.length > 0) {
+      producerPromises.push(startProducerThread(producerId, folders));
+    } else {
+      mainLogger.warn(`Producer ${producerId} has no assigned folders and will not start.`);
+    }
+  }
+
+  await Promise.all(producerPromises);
+  mainLogger.info('All producer threads completed.');
 }
 
 main();
