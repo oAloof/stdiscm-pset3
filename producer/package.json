@@ -5,12 +5,16 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/producer/src/index.js",
     "dev": "ts-node src/index.ts",
     "watch": "tsc --watch",
     "clean": "rm -rf dist"
   },
-  "keywords": ["grpc", "producer", "video-upload"],
+  "keywords": [
+    "grpc",
+    "producer",
+    "video-upload"
+  ],
   "author": "oAloof",
   "license": "MIT",
   "dependencies": {

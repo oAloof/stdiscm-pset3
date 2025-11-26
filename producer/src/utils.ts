@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as crypto from "crypto";
 import { Logger } from "./logger";
 
 const logger = new Logger("Utils");
@@ -167,7 +168,7 @@ export function getVideoMetadata(filePath: string): VideoMetadata {
  * const stream = createFileStream("./video.mp4");
  * stream.on('data', (chunk) => console.log('Read chunk'));
  */
-export function createFileStream(filePath: string): fs.ReadStream {
+export function createFileStream(filePath: string, options?: Parameters<typeof fs.createReadStream>[1]): fs.ReadStream {
     // Validate file exists and is readable
     try {
         const stats = fs.statSync(filePath);
@@ -181,5 +182,22 @@ export function createFileStream(filePath: string): fs.ReadStream {
         throw error;
     }
 
-    return fs.createReadStream(filePath);
+    return fs.createReadStream(filePath, options);
+}
+
+/**
+ * Calculates the MD5 hash of a file.
+ * 
+ * @param filePath - Path to the video file
+ * @returns MD5 hash string
+ */
+export async function calculateFileHash(filePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const hash = crypto.createHash('md5');
+        const stream = fs.createReadStream(filePath);
+
+        stream.on('error', err => reject(err));
+        stream.on('data', chunk => hash.update(chunk));
+        stream.on('end', () => resolve(hash.digest('hex')));
+    });
 }

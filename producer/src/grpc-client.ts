@@ -6,7 +6,9 @@ import { Logger } from './logger';
 
 const logger = new Logger('GrpcClient');
 
-const PROTO_PATH = path.resolve(__dirname, '../../proto/video_upload.proto');
+logger.info(`Current working directory: ${process.cwd()}`);
+const PROTO_PATH = path.resolve(process.cwd(), '../proto/video_upload.proto');
+logger.info(`Resolved PROTO_PATH: ${PROTO_PATH}`);
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
@@ -31,12 +33,17 @@ export class GrpcClient {
     logger.info(`gRPC Client connected to ${address}`);
   }
 
-  public uploadVideo(meta: { filename: string; producerId: number; md5Hash?: string }): grpc.ClientWritableStream<VideoChunk> {
+  public uploadVideo(
+    meta: { filename: string; producerId: number; md5Hash: string },
+    onComplete?: (err: Error | null, response?: UploadResponse) => void
+  ): grpc.ClientWritableStream<VideoChunk> {
     const stream = this.client.UploadVideo((error: grpc.ServiceError | null, response: UploadResponse) => {
       if (error) {
         logger.error('UploadVideo error:', error);
+        if (onComplete) onComplete(error);
       } else {
         logger.info(`UploadVideo response: ${JSON.stringify(response)}`);
+        if (onComplete) onComplete(null, response);
       }
     });
     return stream;
@@ -49,6 +56,19 @@ export class GrpcClient {
           reject(error);
         } else {
           resolve(response);
+        }
+      });
+    });
+  }
+
+  public waitForReady(deadline: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const deadlineDate = new Date(Date.now() + deadline);
+      this.client.waitForReady(deadlineDate, (error: Error | null) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
         }
       });
     });
