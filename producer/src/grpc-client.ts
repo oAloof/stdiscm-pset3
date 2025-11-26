@@ -2,6 +2,9 @@ import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { UploadResponse, QueueStatusResponse, VideoChunk } from '../../proto/types';
+import { Logger } from './logger';
+
+const logger = new Logger('GrpcClient');
 
 const PROTO_PATH = path.resolve(__dirname, '../../proto/video_upload.proto');
 
@@ -25,15 +28,15 @@ export class GrpcClient {
       address,
       grpc.credentials.createInsecure()
     );
-    console.log(`gRPC Client connected to ${address}`);
+    logger.info(`gRPC Client connected to ${address}`);
   }
 
   public uploadVideo(meta: { filename: string; producerId: number; md5Hash?: string }): grpc.ClientWritableStream<VideoChunk> {
     const stream = this.client.UploadVideo((error: grpc.ServiceError | null, response: UploadResponse) => {
       if (error) {
-        console.error('UploadVideo error:', error);
+        logger.error('UploadVideo error:', error);
       } else {
-        console.log('UploadVideo response:', response);
+        logger.info(`UploadVideo response: ${JSON.stringify(response)}`);
       }
     });
     return stream;
