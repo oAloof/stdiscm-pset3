@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+
 import { Logger } from "./logger";
 
 const logger = new Logger("Utils");
@@ -201,3 +202,11 @@ export async function calculateFileHash(filePath: string): Promise<string> {
         stream.on('end', () => resolve(hash.digest('hex')));
     });
 }
+
+/**
+ * Pauses execution for a specified number of milliseconds.
+ * 
+ * @param ms - Number of milliseconds to sleep
+ * @returns Promise that resolves after the delay
+ */
+export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

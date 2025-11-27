@@ -1,7 +1,7 @@
 import { GrpcClient } from './grpc-client';
 import dotenv from 'dotenv';
 import { Logger } from './logger';
-import { discoverVideoFiles, calculateFileHash, createFileStream, getVideoMetadata } from './utils';
+import { discoverVideoFiles, calculateFileHash, createFileStream, getVideoMetadata, sleep } from './utils';
 import * as path from 'path';
 
 const logger = new Logger('ProducerMain');
@@ -13,6 +13,7 @@ const PORT = process.env.CONSUMER_PORT || 50051;
 const CHUNK_SIZE = parseInt(process.env.CHUNK_SIZE || '1048576', 10);
 const NUM_PRODUCERS = parseInt(process.env.NUM_PRODUCERS || '1', 10);
 const VIDEO_FOLDERS = (process.env.VIDEO_FOLDERS || './videos').split(',');
+const MAX_RETRIES = 3;
 
 async function startProducerThread(id: number, folders: string[]) {
   const logger = new Logger(`Producer-${id}`);
@@ -60,61 +61,92 @@ async function startProducerThread(id: number, folders: string[]) {
 
         logger.info(`Uploading ${meta.filename} (Size: ${meta.sizeBytes}, Hash: ${hash})`);
 
-        await new Promise<void>((resolve, reject) => {
-          const stream = client.uploadVideo({
-            filename: meta.filename,
-            producerId: id,
-            md5Hash: hash
-          }, (err, response) => {
-            if (err) {
-              logger.error(`Upload failed for ${meta.filename}:`, err);
-              reject(err);
+        // Retry loop for handling queue full
+        let uploadSuccess = false;
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const stream = client.uploadVideo({
+                filename: meta.filename,
+                producerId: id,
+                md5Hash: hash
+              }, (err, response) => {
+                if (err) {
+                  logger.error(`Upload failed for ${meta.filename}:`, err);
+                  reject(err);
+                } else if (response && response.queue_full) {
+                  logger.warn(`Queue full for ${meta.filename}`);
+                  reject(new Error('QUEUE_FULL'));
+                } else {
+                  logger.info(`Upload success for ${meta.filename}: ${JSON.stringify(response)}`);
+                  resolve();
+                }
+              });
+
+              const fileStream = createFileStream(videoPath, { highWaterMark: CHUNK_SIZE });
+              let chunkNum = 0;
+
+              fileStream.on('data', (chunk: Buffer | string) => {
+                const dataBuffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+                chunkNum++;
+                const canWrite = stream.write({
+                  filename: meta.filename,
+                  data: dataBuffer,
+                  chunk_number: chunkNum,
+                  is_last: false,
+                  producer_id: id,
+                  md5_hash: hash
+                });
+
+                if (!canWrite) {
+                  fileStream.pause();
+                  stream.once('drain', () => fileStream.resume());
+                }
+              });
+
+              fileStream.on('end', () => {
+                // Send final empty chunk with is_last=true
+                stream.write({
+                  filename: meta.filename,
+                  data: Buffer.alloc(0),
+                  chunk_number: chunkNum + 1,
+                  is_last: true,
+                  producer_id: id,
+                  md5_hash: hash
+                });
+                stream.end();
+              });
+
+              fileStream.on('error', (err) => {
+                logger.error(`File read error for ${videoPath}:`, err);
+                stream.end();
+                reject(err);
+              });
+            });
+
+            uploadSuccess = true;
+            break; // Success, exit retry loop
+
+          } catch (err: any) {
+            if (err.message === 'QUEUE_FULL') {
+              if (attempt < MAX_RETRIES) {
+                // Exponential backoff
+                const delay = Math.pow(2, attempt - 1) * 1000;
+                logger.warn(`Queue full. Retrying upload for ${meta.filename} in ${delay}ms (Attempt ${attempt}/${MAX_RETRIES})`);
+                await sleep(delay);
+              } else {
+                logger.error(`Failed to upload ${meta.filename} after ${MAX_RETRIES} attempts due to full queue.`);
+              }
             } else {
-              logger.info(`Upload success for ${meta.filename}: ${JSON.stringify(response)}`);
-              resolve();
+              logger.error(`Fatal error uploading ${meta.filename}:`, err);
+              break;
             }
-          });
+          }
+        }
 
-          const fileStream = createFileStream(videoPath, { highWaterMark: CHUNK_SIZE });
-          let chunkNum = 0;
-
-          fileStream.on('data', (chunk: Buffer | string) => {
-            const dataBuffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
-            chunkNum++;
-            const canWrite = stream.write({
-              filename: meta.filename,
-              data: dataBuffer,
-              chunk_number: chunkNum,
-              is_last: false,
-              producer_id: id,
-              md5_hash: hash
-            });
-
-            if (!canWrite) {
-              fileStream.pause();
-              stream.once('drain', () => fileStream.resume());
-            }
-          });
-
-          fileStream.on('end', () => {
-            // Send final empty chunk with is_last=true
-            stream.write({
-              filename: meta.filename,
-              data: Buffer.alloc(0),
-              chunk_number: chunkNum + 1,
-              is_last: true,
-              producer_id: id,
-              md5_hash: hash
-            });
-            stream.end();
-          });
-
-          fileStream.on('error', (err) => {
-            logger.error(`File read error for ${videoPath}:`, err);
-            stream.end();
-            reject(err);
-          });
-        });
+        if (!uploadSuccess) {
+          logger.warn(`Skipping ${meta.filename} due to upload failure.`);
+        }
 
       } catch (err) {
         logger.error(`Failed to upload ${videoPath}:`, err);

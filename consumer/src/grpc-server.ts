@@ -2,6 +2,7 @@ import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { VideoChunk, UploadResponse, QueueStatusResponse } from '../../proto/types';
 import { VideoQueue } from './queue';
@@ -22,10 +23,14 @@ function uploadVideo(call: grpc.ServerReadableStream<VideoChunk, UploadResponse>
   const chunks: Buffer[] = [];
   let filename = '';
   let producerId = 0;
+  let expectedHash = '';
 
   call.on('data', (chunk: VideoChunk) => {
     filename = chunk.filename;
     producerId = chunk.producer_id;
+    if (chunk.md5_hash) {
+      expectedHash = chunk.md5_hash;
+    }
     chunks.push(chunk.data);
 
     logger.debug(`[Producer ${producerId}] Received chunk ${chunk.chunk_number} for ${filename}`);
@@ -39,6 +44,25 @@ function uploadVideo(call: grpc.ServerReadableStream<VideoChunk, UploadResponse>
     try {
       // Reassemble video from chunks
       const completeVideo = Buffer.concat(chunks);
+
+      // Verify MD5 hash
+      if (expectedHash) {
+        const calculatedHash = crypto.createHash('md5').update(completeVideo).digest('hex');
+        if (calculatedHash !== expectedHash) {
+          logger.error(`[Producer ${producerId}] Hash mismatch for ${filename}. Expected: ${expectedHash}, Calculated: ${calculatedHash}`);
+          const response: UploadResponse = {
+            success: false,
+            message: 'Data integrity check failed: MD5 hash mismatch',
+            video_id: '',
+            queue_full: false
+          };
+          callback(null, response);
+          return;
+        }
+        logger.debug(`[Producer ${producerId}] MD5 hash verified for ${filename}`);
+      } else {
+        logger.warn(`[Producer ${producerId}] No MD5 hash provided for ${filename}, skipping verification`);
+      }
 
       // Attempt to enqueue the video
       const jobAdded = videoQueue.enqueue({
