@@ -8,6 +8,7 @@ import { DeadLetterQueue } from "./dead-letter-queue";
 import { VideoRegistry } from "./video-registry";
 import { Logger } from "./logger";
 import { validateFilePath, streamVideoWithRangeSupport } from "./streaming-utils";
+import { getPreviewFilename } from "./video-processor";
 
 dotenv.config();
 
@@ -103,14 +104,18 @@ app.get("/videos/:filename", (req, res) => {
  * Stream preview clip with Range request support
  */
 app.get("/videos/:filename/preview", (req, res) => {
-  const previewPath = validateFilePath(req.params.filename, PREVIEW_DIR);
+  const previewFilename = getPreviewFilename(req.params.filename);
+  const filePath = path.join(UPLOAD_DIR, previewFilename);
 
-  if (!previewPath) {
+  if (!fs.existsSync(filePath)) {
     return res.status(404).send("Preview not found");
   }
 
-  streamVideoWithRangeSupport(previewPath, req.params.filename, req, res);
+  res.writeHead(200, { "Content-Type": "video/mp4" });
+  fs.createReadStream(filePath).pipe(res);
 });
+
+
 
 /**
  * GET /api/queue/status

@@ -11,6 +11,7 @@ export interface VideoEntry {
   uploadedAt: Date;
   path: string;
   producerId: number;
+  previewPath?: string;
 }
 
 /**
@@ -214,6 +215,16 @@ export class VideoRegistry {
       fs.writeFileSync(this.registryFilePath, JSON.stringify(obj, null, 2));
     } catch (error) {
       logger.error(`Failed to save registry file: ${error}`);
+    }
+  }
+
+  public updatePreview(hash: string, previewPath: string): void {
+    const entry = this.registry.get(hash);
+    if (entry) {
+      entry.previewPath = previewPath;
+      this.registry.set(hash, entry);
+      logger.debug(`Updated preview for hash ${hash.substring(0, 8)}... to ${previewPath}`);
+      this.saveToFile();
     }
   }
 }
