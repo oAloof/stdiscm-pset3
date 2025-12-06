@@ -4,7 +4,7 @@ import { Logger } from '../utils/logger';
 import { DeadLetterQueue } from '../core/dead-letter-queue';
 import { VideoRegistry } from '../core/video-registry';
 import { FileHandler } from './file-handler';
-import { generatePreview, getPreviewFilename, validateVideoFile } from "../utils/video-processor";
+import { generatePreview, getPreviewFilename, validateVideoFile, getThumbnailFilename, generateThumbnail } from "../utils/video-processor";
 import path from "path";
 import { UPLOAD_DIR, PREVIEW_DIR, THUMBNAIL_DIR } from '../config';
 
@@ -76,18 +76,20 @@ export async function processJobWithRetry(
     try {
       logger.info(`Processing ${job.filename} (Producer ${job.producerId}) - Attempt ${attempt}/${MAX_RETRIES}`);
 
-      // -------------------- SAVE VIDEO --------------------
+      // Simulate failure for testing DLQ
+      if (job.filename.includes('fail_me')) {
+        throw new Error("Simulated failure for testing DLQ");
+      }
+
       const result = await fileHandler.saveVideo(job.data, job.id, job.filename);
 
       if (!result.success) {
         throw new Error(result.error || "Unknown error during file save");
       }
 
-      // Update registry with video path
       if (job.md5Hash) registry.updatePath(job.md5Hash, result.filepath);
       logger.info(`Saved video: ${result.savedFilename}`);
 
-      // -------------------- GENERATE PREVIEW --------------------
       if (validateVideoFile(result.filepath)) {
         try {
           const previewFilename = path.basename(getPreviewFilename(result.filepath));
@@ -103,11 +105,8 @@ export async function processJobWithRetry(
           logger.error(`Preview generation failed for ${result.filepath}: ${err}`);
         }
 
-
-
-        // -------------------- GENERATE THUMBNAIL --------------------
+        // Generate thumbnail
         try {
-          const { getThumbnailFilename, generateThumbnail } = require("../utils/video-processor");
           const thumbnailFilename = path.basename(getThumbnailFilename(result.filepath));
           const thumbnailPath = path.join(THUMBNAIL_DIR, thumbnailFilename);
           await generateThumbnail(result.filepath, thumbnailPath);
