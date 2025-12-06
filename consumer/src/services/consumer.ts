@@ -6,11 +6,11 @@ import { VideoRegistry } from '../core/video-registry';
 import { FileHandler } from './file-handler';
 import { generatePreview, getPreviewFilename, validateVideoFile } from "../video-processor";
 import path from "path";
+import { UPLOAD_DIR, PREVIEW_DIR } from '../config';
 
-// DLQ Configuration (loaded once)
+// DLQ Configuration
 const MAX_RETRIES = parseInt(process.env.DLQ_MAX_RETRIES || '3', 10);
 const INITIAL_DELAY_MS = parseInt(process.env.DLQ_INITIAL_DELAY_MS || '1000', 10);
-const PREVIEW_DIR = process.env.PREVIEW_DIR || './uploaded-videos';
 
 // Shared instances
 const dlq = DeadLetterQueue.getInstance();
@@ -27,7 +27,7 @@ export function createConsumerPool(numConsumers: number, queue: VideoQueue): voi
   mainLogger.info(`Starting ${numConsumers} consumer workers...`);
 
   for (let i = 0; i < numConsumers; i++) {
-    const consumerPromise = startConsumerThread(i, queue, PREVIEW_DIR);
+    const consumerPromise = startConsumerThread(i, queue, UPLOAD_DIR);
     activeConsumers.push(consumerPromise);
   }
 
@@ -105,7 +105,7 @@ export async function processJobWithRetry(
       }
 
       return; // Job processed successfully
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 

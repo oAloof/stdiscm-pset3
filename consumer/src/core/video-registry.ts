@@ -153,6 +153,16 @@ export class VideoRegistry {
     this.registry.forEach((entry, hash) => {
       if (entry.path && entry.path !== 'pending' && !fs.existsSync(entry.path)) {
         hashesToRemove.push(hash);
+
+        // Clean up orphaned preview file if it exists
+        if (entry.previewPath && fs.existsSync(entry.previewPath)) {
+          try {
+            fs.unlinkSync(entry.previewPath);
+            logger.info(`Cleaned up orphaned preview: ${entry.previewPath}`);
+          } catch (err) {
+            logger.warn(`Failed to delete orphaned preview ${entry.previewPath}: ${err}`);
+          }
+        }
       }
     });
 

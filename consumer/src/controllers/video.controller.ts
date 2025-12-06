@@ -27,7 +27,9 @@ export class VideoController {
       // Use filename hash as unique ID
       const id = Buffer.from(filename).toString("base64").replace(/=/g, "");
 
-      const previewPath = path.join(PREVIEW_DIR, filename);
+      const ext = path.extname(filename);
+      const previewFilename = filename.replace(ext, `_preview${ext}`);
+      const previewPath = path.join(PREVIEW_DIR, previewFilename);
 
       return {
         id,
@@ -72,13 +74,18 @@ export class VideoController {
   }
 
   static streamPreview(req: Request, res: Response) {
-    const previewPath = validateFilePath(req.params.filename, PREVIEW_DIR);
+    // Construct preview filename from original filename
+    const originalFilename = req.params.filename;
+    const ext = path.extname(originalFilename);
+    const previewFilename = originalFilename.replace(ext, `_preview${ext}`);
+
+    const previewPath = validateFilePath(previewFilename, PREVIEW_DIR);
 
     if (!previewPath) {
       return res.status(404).send("Preview not found");
     }
 
-    streamVideoWithRangeSupport(previewPath, req.params.filename, req, res);
+    streamVideoWithRangeSupport(previewPath, previewFilename, req, res);
   }
 
   static deleteVideo(req: Request, res: Response) {
