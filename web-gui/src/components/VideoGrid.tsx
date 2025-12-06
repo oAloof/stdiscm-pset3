@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { fetchVideos, startVideoPolling } from "../api/client";
 import type { Video } from "../types";
 import VideoCard from "./VideoCard";
@@ -35,23 +36,23 @@ function VideoGrid() {
     setVideos([]);
     setLoading(true);
     setError(null);
-  
+
     const stop = startVideoPolling(
       5000,
       (v) => {
         setVideos(v);
-        setLoading(false); 
+        setLoading(false);
         setError(null);
       },
       (err) => {
         setVideos([]);
-        setLoading(false); 
-        setError(err); 
+        setLoading(false);
+        setError(err);
       }
     );
-  
+
     setLoading(true);
-  
+
     return () => stop();
   }, [autoRefresh]);
 
@@ -61,6 +62,9 @@ function VideoGrid() {
         <h2 className="text-2xl font-semibold">Uploaded Videos</h2>
 
         <div className="flex items-center gap-3">
+          <Link to="/dlq" className="btn btn-warning btn-sm">
+            Manage DLQ
+          </Link>
 
           {!autoRefresh && (
             <button
@@ -75,7 +79,7 @@ function VideoGrid() {
             <input
               type="checkbox"
               className="checkbox focus:outline-none focus:ring-0"
-              checked={!autoRefresh}          
+              checked={!autoRefresh}
               onChange={(e) => setAutoRefresh(!e.target.checked)}
             />
             Manual Refresh
@@ -109,13 +113,13 @@ function VideoGrid() {
           xl:grid-cols-4
         "
       >
-       {videos.map((video) => (
-        <VideoCard
-          key={video.id}
-          video={video}
-          onDelete={(id) => setVideos((prev) => prev.filter(v => v.id !== id))}
-        />
-      ))}
+        {videos.map((video) => (
+          <VideoCard
+            key={video.id}
+            video={video}
+            onDelete={(id) => setVideos((prev) => prev.filter(v => v.id !== id))}
+          />
+        ))}
       </div>
     </div>
   );

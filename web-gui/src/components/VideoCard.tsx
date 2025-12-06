@@ -66,6 +66,11 @@ export default function VideoCard({ video, onDelete }: VideoCardProps) {
     }
   };
 
+  const getDisplayFilename = (rawName: string) => {
+    // Remove hash and timestamp from filename
+    return rawName.replace(/^[a-f0-9]{8}_\d+_/, "");
+  };
+
   return (
     <>
       <div
@@ -89,6 +94,7 @@ export default function VideoCard({ video, onDelete }: VideoCardProps) {
               src={video.previewUrl}
               muted
               playsInline
+              autoPlay
               preload="metadata"
               className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${previewLoaded ? "opacity-100" : "opacity-0"
                 }`}
@@ -104,7 +110,9 @@ export default function VideoCard({ video, onDelete }: VideoCardProps) {
         </div>
 
         <div className="card-body">
-          <h2 className="text-lg font-bold truncate">{video.originalFilename}</h2>
+          <h2 className="text-lg font-bold truncate" title={video.originalFilename}>
+            {getDisplayFilename(video.originalFilename)}
+          </h2>
 
           <ul className="mt-2 flex flex-col gap-1 text-xs">
             <li>

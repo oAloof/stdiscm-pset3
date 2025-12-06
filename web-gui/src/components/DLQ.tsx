@@ -65,6 +65,16 @@ export default function DLQ() {
 
   return (
     <div className="overflow-x-auto p-5">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Dead Letter Queue</h1>
+        <button
+          className="btn btn-outline btn-sm"
+          onClick={() => window.location.href = '/'}
+        >
+          Back to Videos
+        </button>
+      </div>
+
       {loading && <p className="text-center py-4">Loading DLQ jobs...</p>}
       {error && <p className="text-center py-4 text-red-600">Error: {error}</p>}
 
