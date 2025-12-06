@@ -63,6 +63,10 @@ tmp/
 temp/
 *.tmp
 
+# Runtime state files
+consumer/video-registry.json
+consumer/previews/
+
 # Test coverage
 coverage/
 .nyc_output/

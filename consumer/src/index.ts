@@ -1,12 +1,11 @@
 import dotenv from 'dotenv';
 import { startGrpcServer, videoQueue } from './grpc-server';
 import { startApiServer } from './api-server';
-import * as fs from 'fs';
-import * as path from 'path';
 import { Logger } from './logger';
 import { DeadLetterQueue } from './dead-letter-queue';
 import { VideoJob } from './queue';
 import { VideoRegistry } from './video-registry';
+import { FileHandler } from './file-handler';
 
 const logger = new Logger('Worker');
 const dlq = DeadLetterQueue.getInstance();
@@ -32,24 +31,24 @@ startApiServer();
 /**
  * Process a job with retry logic and exponential backoff
  */
-async function processJobWithRetry(job: VideoJob, uploadDir: string): Promise<void> {
-  const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];
-  const savedFilename = `${timestamp}_${job.filename}`;
-  const filepath = path.join(uploadDir, savedFilename);
-
+async function processJobWithRetry(job: VideoJob, fileHandler: FileHandler): Promise<void> {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       logger.info(`Processing job for ${job.filename} (Producer ${job.producerId}) - Attempt ${attempt}/${MAX_RETRIES}`);
 
-      // Attempt to write file
-      fs.writeFileSync(filepath, job.data);
+      // Use FileHandler for atomic write operation
+      const result = await fileHandler.saveVideo(job.data, job.id, job.filename);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Unknown error during file save');
+      }
 
       // Update registry with actual file path
       if (job.md5Hash) {
-        registry.updatePath(job.md5Hash, filepath);
+        registry.updatePath(job.md5Hash, result.filepath);
       }
 
-      logger.info(`Saved ${savedFilename}`);
+      logger.info(`Saved ${result.savedFilename}`);
       return;
 
     } catch (error) {
@@ -75,16 +74,16 @@ async function processJobWithRetry(job: VideoJob, uploadDir: string): Promise<vo
 // Worker loop to process videos
 async function processQueue() {
   const uploadDir = process.env.UPLOAD_DIR || './uploaded-videos';
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
+
+  // Initialize FileHandler for atomic file operations
+  const fileHandler = new FileHandler(uploadDir);
 
   while (true) {
     const job = videoQueue.dequeue();
 
     if (job) {
       try {
-        await processJobWithRetry(job, uploadDir);
+        await processJobWithRetry(job, fileHandler);
       } catch (error) {
         logger.error(`Job ${job.filename} moved to DLQ`);
       }
