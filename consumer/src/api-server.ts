@@ -28,21 +28,24 @@ app.use(express.json());
 
 /** Utility: scan uploaded videos and extract metadata */
 function buildVideoList() {
-  const files = fs.readdirSync(UPLOAD_DIR);
+  const allowedExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm"];
+
+  const files = fs.readdirSync(UPLOAD_DIR)
+    .filter(f => allowedExtensions.includes(path.extname(f).toLowerCase()));
 
   return files.map(filename => {
     const filePath = path.join(UPLOAD_DIR, filename);
     const stats = fs.statSync(filePath);
 
-    const [id, timestamp, ...rest] = filename.split("_");
-    const originalFilename = rest.join("_");
+    // Use filename hash as unique ID
+    const id = Buffer.from(filename).toString("base64").replace(/=/g, "");
 
     const previewPath = path.join(PREVIEW_DIR, filename);
 
     return {
       id,
-      originalFilename,
-      uploadTime: new Date(Number(timestamp) * 1000).toISOString(),
+      originalFilename: filename,
+      uploadTime: stats.mtime.toISOString(),
       fileSize: stats.size,
       hasPreview: fs.existsSync(previewPath),
 
@@ -51,6 +54,7 @@ function buildVideoList() {
     };
   });
 }
+
 
 /**
  * GET /api/videos
