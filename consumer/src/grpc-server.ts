@@ -1,9 +1,7 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as crypto from 'crypto';
-import { v4 as uuidv4 } from 'uuid';
 import { VideoChunk, UploadResponse, QueueStatusResponse } from '../../proto/types';
 import { VideoQueue } from './queue';
 import { Logger } from './logger';
@@ -114,7 +112,6 @@ function uploadVideo(call: grpc.ServerReadableStream<VideoChunk, UploadResponse>
 
 /**
  * Handle queue status request
- * Note: Returns placeholder values until Issue #10 (Bounded Queue) is implemented
  */
 function checkQueueStatus(call: grpc.ServerUnaryCall<any, QueueStatusResponse>, callback: grpc.sendUnaryData<QueueStatusResponse>) {
   const response: QueueStatusResponse = {

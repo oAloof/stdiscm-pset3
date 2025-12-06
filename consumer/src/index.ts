@@ -25,8 +25,8 @@ console.log('='.repeat(50));
 startGrpcServer();
 
 // Start Express API server
-
 startApiServer();
+
 /**
  * Process a job with retry logic and exponential backoff
  */

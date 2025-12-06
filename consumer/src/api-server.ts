@@ -1,4 +1,3 @@
-// consumer/src/api-server.ts
 import fs from "fs";
 import path from "path";
 import express from "express";
@@ -6,8 +5,11 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { VideoQueue } from "./queue";
 import { DeadLetterQueue } from "./dead-letter-queue";
+import { Logger } from "./logger";
 
 dotenv.config();
+
+const logger = new Logger('API-Server');
 
 // Directories
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "./uploaded-videos";
@@ -54,8 +56,6 @@ function buildVideoList() {
     };
   });
 }
-
-
 /**
  * GET /api/videos
  * List all uploaded videos
@@ -113,6 +113,10 @@ app.get("/videos/:filename/preview", (req, res) => {
   fs.createReadStream(previewPath).pipe(res);
 });
 
+/**
+ * GET /api/queue/status
+ * Get current queue status
+ */
 app.get("/api/queue/status", (req, res) => {
   try {
     const queue = VideoQueue.getInstance();
@@ -127,8 +131,6 @@ app.get("/api/queue/status", (req, res) => {
     res.status(500).json({ error: "Failed to get queue status" });
   }
 });
-
-
 /**
  * GET /api/dlq/status
  * Get Dead Letter Queue status and failed jobs
@@ -151,7 +153,7 @@ app.get("/api/dlq/status", (req, res) => {
     });
 
   } catch (err) {
-    console.error("Failed to get DLQ status:", err);
+    logger.error("Failed to get DLQ status:", err);
     res.status(500).json({ error: "Failed to get DLQ status" });
   }
 });
