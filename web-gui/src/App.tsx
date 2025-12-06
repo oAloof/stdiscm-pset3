@@ -4,7 +4,6 @@ function App() {
 
   return (
     <div>
-      <h1>Media Upload Service</h1>
       <VideoGrid />
     </div>
   );
