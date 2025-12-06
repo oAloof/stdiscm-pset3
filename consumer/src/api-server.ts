@@ -5,6 +5,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { VideoQueue } from "./queue";
+import { DeadLetterQueue } from "./dead-letter-queue";
 
 dotenv.config();
 
@@ -120,6 +121,34 @@ app.get("/api/queue/status", (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to get queue status" });
+  }
+});
+
+
+/**
+ * GET /api/dlq/status
+ * Get Dead Letter Queue status and failed jobs
+ */
+app.get("/api/dlq/status", (req, res) => {
+  try {
+    const dlq = DeadLetterQueue.getInstance();
+    const failedJobs = dlq.getAll();
+
+    res.json({
+      size: dlq.getSize(),
+      jobs: failedJobs.map(failed => ({
+        jobId: failed.job.id,
+        filename: failed.job.filename,
+        producerId: failed.job.producerId,
+        error: failed.error,
+        failedAt: failed.failedAt,
+        attempts: failed.attempts
+      }))
+    });
+
+  } catch (err) {
+    console.error("Failed to get DLQ status:", err);
+    res.status(500).json({ error: "Failed to get DLQ status" });
   }
 });
 
