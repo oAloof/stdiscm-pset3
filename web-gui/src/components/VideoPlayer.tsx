@@ -22,7 +22,6 @@ export default function VideoPlayer({ video, isOpen, onClose }: VideoPlayerProps
       dialog.close();
     }
 
-    // Close on ESC
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();

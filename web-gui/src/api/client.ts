@@ -106,6 +106,22 @@ export function getPreviewUrl(filename: string): string {
   return `${VIDEO_BASE}/${filename}/preview`;
 }
 
+// ---------- Delete a video ----------
+export async function deleteVideo(id: string): Promise<void> {
+  try {
+    const res = await fetchWithRetry(`${API_BASE}/videos/${id}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to delete video: ${res.status} ${res.statusText} - ${text}`);
+    }
+  } catch (err) {
+    throw err instanceof Error ? err : new Error("Unknown error deleting video");
+  }
+}
+
 // ---------- Optional: Polling helper ----------
 export function startVideoPolling(
   intervalMs: number,

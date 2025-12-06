@@ -109,9 +109,13 @@ function VideoGrid() {
           xl:grid-cols-4
         "
       >
-        {videos.map((video) => (
-          <VideoCard key={video.id} video={video} />
-        ))}
+       {videos.map((video) => (
+        <VideoCard
+          key={video.id}
+          video={video}
+          onDelete={(id) => setVideos((prev) => prev.filter(v => v.id !== id))}
+        />
+      ))}
       </div>
     </div>
   );

@@ -1,19 +1,21 @@
 import { useRef, useState, useCallback } from "react";
 import type { Video } from "../types";
 import VideoPlayer from "./VideoPlayer";
+import { deleteVideo } from "../api/client"; 
 
 interface VideoCardProps {
   video: Video;
+  onDelete: (id: string) => void; 
 }
 
-export default function VideoCard({ video }: VideoCardProps) {
+export default function VideoCard({ video, onDelete }: VideoCardProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hoverTimer = useRef<NodeJS.Timeout | null>(null);
 
   const [isHovering, setIsHovering] = useState(false);
   const [previewLoaded, setPreviewLoaded] = useState(false);
   const [playerOpen, setPlayerOpen] = useState(false); 
-
+  const [deleting, setDeleting] = useState(false); 
 
   const handleMouseEnter = useCallback(() => {
     hoverTimer.current = setTimeout(() => {
@@ -50,14 +52,29 @@ export default function VideoCard({ video }: VideoCardProps) {
   const formatSize = (bytes: number) =>
     (bytes / (1024 * 1024)).toFixed(2) + " MB";
 
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${video.originalFilename}?`)) return;
+
+    try {
+      setDeleting(true);
+      await deleteVideo(video.id); 
+      onDelete(video.id); 
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete video");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <div
-        className="card w-80 bg-base-100 shadow-sm hover:shadow-xl transition cursor-pointer relative"
+        className={`card w-80 bg-base-100 shadow-sm hover:shadow-xl transition cursor-pointer relative ${
+          deleting ? "opacity-50 pointer-events-none" : ""
+        }`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-
         <div className="relative w-full h-48 bg-base-200 overflow-hidden rounded-t-lg">
           {!isHovering && (
             <img
@@ -105,12 +122,21 @@ export default function VideoCard({ video }: VideoCardProps) {
             </li>
           </ul>
 
-          <div className="mt-4">
+          <div className="mt-4 justify-end">
             <button
-              className="btn btn-primary btn-block btn-sm"
+              className="btn btn-primary btn-sm"
               onClick={() => setPlayerOpen(true)}
+              disabled={deleting}
             >
               Play Video
+            </button>
+
+            <button
+              className="btn btn-secondary btn-sm ml-3"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting..." : "Delete Video"}
             </button>
           </div>
         </div>
