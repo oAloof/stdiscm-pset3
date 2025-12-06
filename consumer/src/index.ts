@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import { startGrpcServer, videoQueue } from './grpc-server';
+import { startApiServer } from './api-server';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger } from './logger';
@@ -15,6 +16,10 @@ console.log('='.repeat(50));
 
 // Start gRPC server
 startGrpcServer();
+
+// Start Express API server
+
+startApiServer();
 
 // Worker loop to process videos
 async function processQueue() {

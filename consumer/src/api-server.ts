@@ -1,9 +1,9 @@
+// consumer/src/api-server.ts
 import fs from "fs";
 import path from "path";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { startGrpcServer } from "./grpc-server";
 import { VideoQueue } from "./queue";
 
 dotenv.config();
@@ -17,8 +17,6 @@ const WEB_PORT = Number(process.env.WEB_PORT) || 3000;
 // Ensure required dirs exist
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 if (!fs.existsSync(PREVIEW_DIR)) fs.mkdirSync(PREVIEW_DIR, { recursive: true });
-
-startGrpcServer();
 
 const app = express();
 app.use(cors());
@@ -35,7 +33,6 @@ function buildVideoList() {
     const filePath = path.join(UPLOAD_DIR, filename);
     const stats = fs.statSync(filePath);
 
-    // Filename format: {id}_{timestamp}_{originalFilename}
     const [id, timestamp, ...rest] = filename.split("_");
     const originalFilename = rest.join("_");
 
@@ -63,7 +60,6 @@ app.get("/api/videos", (req, res) => {
     const videos = buildVideoList();
     res.json({ videos });
   } catch (err) {
-    console.error("Failed to list videos:", err);
     res.status(500).json({ error: "Failed to list videos" });
   }
 });
@@ -77,9 +73,7 @@ app.get("/api/videos/:id", (req, res) => {
   const videos = buildVideoList();
 
   const video = videos.find(v => v.id === id);
-  if (!video) {
-    return res.status(404).json({ error: "Video not found" });
-  }
+  if (!video) return res.status(404).json({ error: "Video not found" });
 
   res.json(video);
 });
@@ -114,9 +108,6 @@ app.get("/videos/:filename/preview", (req, res) => {
   fs.createReadStream(previewPath).pipe(res);
 });
 
-/**
- * GET /api/queue/status
- */
 app.get("/api/queue/status", (req, res) => {
   try {
     const queue = VideoQueue.getInstance();
@@ -127,14 +118,14 @@ app.get("/api/queue/status", (req, res) => {
       isFull: queue.isFull(),
       utilization: queue.getUtilization()
     });
-
   } catch (err) {
-    console.error("Failed to get queue status:", err);
     res.status(500).json({ error: "Failed to get queue status" });
   }
 });
 
-// ---------- Start Server ----------
-app.listen(WEB_PORT, () => {
-  console.log(`REST API running on http://localhost:${WEB_PORT}`);
-});
+/** Export starter function */
+export function startApiServer() {
+  app.listen(WEB_PORT, () => {
+    console.log(`REST API running at http://localhost:${WEB_PORT}`);
+  });
+}
