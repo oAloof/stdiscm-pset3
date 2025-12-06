@@ -7,12 +7,12 @@
  */
 export interface Video {
   id: string;
-  filename: string;
-  size: number; // in bytes
-  uploadDate: string; // ISO 8601 date string
-  duration?: number; // in seconds
-  thumbnailUrl?: string;
+  originalFilename: string;
+  fileSize: number;
+  uploadTime: string;
+  hasPreview: boolean;
   videoUrl: string;
+  previewUrl: string;
 }
 
 /**
