@@ -14,6 +14,9 @@ export interface Video {
   videoUrl: string;
   previewUrl: string;
   thumbnailUrl: string;
+  hasCompressed?: boolean;
+  compressedUrl?: string;
+  compressedSize?: number;
 }
 
 /**

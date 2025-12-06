@@ -67,6 +67,7 @@ temp/
 consumer/video-registry.json
 consumer/previews/
 consumer/thumbnails/
+consumer/compressed-videos/
 
 # Test coverage
 coverage/

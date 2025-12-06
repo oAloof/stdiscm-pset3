@@ -13,6 +13,13 @@ export interface VideoEntry {
   producerId: number;
   previewPath?: string;
   thumbnailPath?: string;
+  compressedPath?: string;
+  compressionStats?: {
+    originalSize: number;
+    compressedSize: number;
+    reductionPercent: number;
+    durationMs: number;
+  };
 }
 
 /**
@@ -174,6 +181,16 @@ export class VideoRegistry {
             logger.warn(`Failed to delete orphaned thumbnail ${entry.thumbnailPath}: ${err}`);
           }
         }
+
+        // Clean up orphaned compressed file if it exists
+        if (entry.compressedPath && fs.existsSync(entry.compressedPath)) {
+          try {
+            fs.unlinkSync(entry.compressedPath);
+            logger.info(`Cleaned up orphaned compressed video: ${entry.compressedPath}`);
+          } catch (err) {
+            logger.warn(`Failed to delete orphaned compressed video ${entry.compressedPath}: ${err}`);
+          }
+        }
       }
     });
 
@@ -255,6 +272,17 @@ export class VideoRegistry {
       entry.thumbnailPath = thumbnailPath;
       this.registry.set(hash, entry);
       logger.debug(`Updated thumbnail for hash ${hash.substring(0, 8)}... to ${thumbnailPath}`);
+      this.saveToFile();
+    }
+  }
+
+  public updateCompression(hash: string, compressedPath: string, stats: VideoEntry['compressionStats']): void {
+    const entry = this.registry.get(hash);
+    if (entry) {
+      entry.compressedPath = compressedPath;
+      entry.compressionStats = stats;
+      this.registry.set(hash, entry);
+      logger.info(`Updated compression for hash ${hash.substring(0, 8)}... path:${compressedPath}`);
       this.saveToFile();
     }
   }

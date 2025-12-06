@@ -13,12 +13,13 @@ import { HealthController } from "./controllers/health.controller";
 
 dotenv.config();
 
-import { UPLOAD_DIR, PREVIEW_DIR, THUMBNAIL_DIR, WEB_PORT } from "./config";
+import { UPLOAD_DIR, PREVIEW_DIR, THUMBNAIL_DIR, COMPRESSED_DIR, WEB_PORT } from "./config";
 
 // Ensure required dirs exist
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 if (!fs.existsSync(PREVIEW_DIR)) fs.mkdirSync(PREVIEW_DIR, { recursive: true });
 if (!fs.existsSync(THUMBNAIL_DIR)) fs.mkdirSync(THUMBNAIL_DIR, { recursive: true });
+if (!fs.existsSync(COMPRESSED_DIR)) fs.mkdirSync(COMPRESSED_DIR, { recursive: true });
 
 const app = express();
 app.use(cors());
@@ -34,6 +35,7 @@ app.delete("/api/videos/:id", VideoController.deleteVideo);
 app.get("/videos/:filename", VideoController.streamVideo);
 app.get("/videos/:filename/preview", VideoController.streamPreview);
 app.get("/videos/:filename/thumbnail", VideoController.streamThumbnail);
+app.get("/videos/:filename/compressed", VideoController.streamCompressed);
 
 // Routes - Queue Status
 app.get("/api/queue/status", QueueController.getQueueStatus);

@@ -109,3 +109,126 @@ export async function generateThumbnail(videoPath: string, outputPath: string): 
     }
   });
 }
+
+/**
+ * Compression options for FFmpeg
+ */
+export interface CompressionOptions {
+  codec: string;
+  crf: number;
+  preset: string;
+  audioBitrate: string;
+}
+
+/**
+ * Result of compression operation
+ */
+export interface CompressionResult {
+  success: boolean;
+  outputPath: string;
+  originalSize: number;
+  compressedSize: number;
+  reductionPercent: number;
+  durationMs: number;
+  error?: string;
+}
+
+/**
+ * Build compressed filename
+ */
+export function getCompressedFilename(originalPath: string): string {
+  const ext = path.extname(originalPath);
+  const base = originalPath.replace(ext, "");
+  return `${base}_compressed${ext}`; // Use same container format
+}
+
+/**
+ * Compress video using FFmpeg
+ */
+export async function compressVideo(
+  inputPath: string,
+  outputPath: string,
+  options: CompressionOptions
+): Promise<CompressionResult> {
+  const startTime = Date.now();
+
+  return new Promise((resolve) => {
+    try {
+      // Get original file size
+      const originalStats = fs.statSync(inputPath);
+      const originalSize = originalStats.size;
+
+      const ffmpeg = spawn(FFMPEG_PATH, [
+        "-y",
+        "-i", inputPath,
+        "-c:v", options.codec,
+        "-crf", options.crf.toString(),
+        "-preset", options.preset,
+        "-c:a", "aac",
+        "-b:a", options.audioBitrate,
+        outputPath
+      ]);
+
+      ffmpeg.on("error", (err) => {
+        console.error("[FFMPEG COMPRESSION ERROR]", err);
+        resolve({
+          success: false,
+          outputPath: "",
+          originalSize,
+          compressedSize: 0,
+          reductionPercent: 0,
+          durationMs: Date.now() - startTime,
+          error: err.message
+        });
+      });
+
+      // Capture stderr for debugging if needed, but don't fill buffer
+      ffmpeg.stderr.on("data", () => { });
+
+      ffmpeg.on("close", (code) => {
+        const durationMs = Date.now() - startTime;
+
+        if (code !== 0) {
+          console.error(`[FFMPEG COMPRESSION FAILED] Exit code ${code}`);
+          resolve({
+            success: false,
+            outputPath: "",
+            originalSize,
+            compressedSize: 0,
+            reductionPercent: 0,
+            durationMs,
+            error: `FFmpeg exit code ${code}`
+          });
+        } else {
+          // Calculate stats
+          const compressedStats = fs.statSync(outputPath);
+          const compressedSize = compressedStats.size;
+          const reductionPercent = ((originalSize - compressedSize) / originalSize) * 100;
+
+          console.log(`Video compressed in ${durationMs}ms. Size: ${originalSize} -> ${compressedSize} (${reductionPercent.toFixed(1)}% reduction)`);
+
+          resolve({
+            success: true,
+            outputPath,
+            originalSize,
+            compressedSize,
+            reductionPercent,
+            durationMs
+          });
+        }
+      });
+
+    } catch (err) {
+      console.error("[COMPRESSION START FAILED]", err);
+      resolve({
+        success: false,
+        outputPath: "",
+        originalSize: 0,
+        compressedSize: 0,
+        reductionPercent: 0,
+        durationMs: Date.now() - startTime,
+        error: err instanceof Error ? err.message : String(err)
+      });
+    }
+  });
+}

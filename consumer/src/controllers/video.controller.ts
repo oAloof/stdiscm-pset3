@@ -5,7 +5,7 @@ import { validateFilePath, streamVideoWithRangeSupport } from "../utils/streamin
 import { VideoRegistry } from "../core/video-registry";
 import { Logger } from "../utils/logger";
 
-import { UPLOAD_DIR, PREVIEW_DIR, THUMBNAIL_DIR } from "../config";
+import { UPLOAD_DIR, PREVIEW_DIR, THUMBNAIL_DIR, COMPRESSED_DIR } from "../config";
 
 const logger = new Logger('VideoController');
 
@@ -32,16 +32,23 @@ export class VideoController {
       const previewPath = path.join(PREVIEW_DIR, previewFilename);
       const thumbnailFilename = filename.replace(ext, `_thumbnail.jpg`);
       const thumbnailPath = path.join(THUMBNAIL_DIR, thumbnailFilename);
+      const compressedFilename = filename.replace(ext, `_compressed${ext}`);
+      const compressedPath = path.join(COMPRESSED_DIR, compressedFilename);
+      const hasCompressed = fs.existsSync(compressedPath);
+      const compressedSize = hasCompressed ? fs.statSync(compressedPath).size : 0;
 
       return {
         id,
         originalFilename: filename,
         uploadTime: stats.mtime.toISOString(),
         fileSize: stats.size,
+        compressedSize,
         hasPreview: fs.existsSync(previewPath),
+        hasCompressed,
         videoUrl: `/videos/${filename}`,
         previewUrl: `/videos/${filename}/preview`,
-        thumbnailUrl: `/videos/${filename}/thumbnail`
+        thumbnailUrl: `/videos/${filename}/thumbnail`,
+        compressedUrl: `/videos/${filename}/compressed`
       };
     });
   }
@@ -107,6 +114,21 @@ export class VideoController {
     res.sendFile(path.resolve(thumbnailPath));
   }
 
+  static streamCompressed(req: Request, res: Response) {
+    // Construct compressed filename from original filename
+    const originalFilename = req.params.filename;
+    const ext = path.extname(originalFilename);
+    const compressedFilename = originalFilename.replace(ext, `_compressed${ext}`);
+
+    const compressedPath = validateFilePath(compressedFilename, COMPRESSED_DIR);
+
+    if (!compressedPath) {
+      return res.status(404).send("Compressed video not found");
+    }
+
+    streamVideoWithRangeSupport(compressedPath, compressedFilename, req, res);
+  }
+
   static deleteVideo(req: Request, res: Response) {
     try {
       const id = req.params.id;
@@ -121,6 +143,7 @@ export class VideoController {
       const ext = path.extname(video.originalFilename);
       const previewPath = path.join(PREVIEW_DIR, video.originalFilename.replace(ext, `_preview${ext}`));
       const thumbnailPath = path.join(THUMBNAIL_DIR, video.originalFilename.replace(ext, `_thumbnail.jpg`));
+      const compressedPath = path.join(COMPRESSED_DIR, video.originalFilename.replace(ext, `_compressed${ext}`));
 
       // Delete the video file
       if (fs.existsSync(filePath)) {
@@ -138,6 +161,12 @@ export class VideoController {
       if (fs.existsSync(thumbnailPath)) {
         fs.unlinkSync(thumbnailPath);
         logger.info(`Deleted thumbnail: ${thumbnailPath}`);
+      }
+
+      // Delete the compressed video if it exists
+      if (fs.existsSync(compressedPath)) {
+        fs.unlinkSync(compressedPath);
+        logger.info(`Deleted compressed video: ${compressedPath}`);
       }
 
       // Clean up registry entry if it exists
