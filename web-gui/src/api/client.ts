@@ -18,6 +18,15 @@ export interface FetchState<T> {
   data: T | null;
 }
 
+export interface DlqJob {
+  jobId: string;
+  filename: string;
+  error: string;
+  failedAt: string;
+  attempts: number;
+  producerId: number;
+}
+
 // ---------- Helper: Retry fetch with backoff ----------
 async function fetchWithRetry(
   url: string,
@@ -163,5 +172,45 @@ export async function withLoadingState<T>(
       error: err instanceof Error ? err.message : 'Unknown error',
       data: null,
     });
+  }
+}
+
+// ---------- DLQ API helpers ----------
+
+export async function fetchDlqStatus(): Promise<DlqJob[]> {
+  const result = await fetchApi<{ jobs: DlqJob[] }>('/dlq/status');
+  if (!result.success || !result.data) {
+    throw new Error(result.error ?? 'Failed to fetch DLQ status');
+  }
+  return result.data.jobs;
+}
+
+export async function retryDlqJob(jobId: string): Promise<void> {
+  const res = await fetchWithRetry(`${API_BASE}/dlq/retry/${jobId}`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to retry job: ${res.status} ${res.statusText} - ${text}`);
+  }
+}
+
+export async function deleteDlqJob(jobId: string): Promise<void> {
+  const res = await fetchWithRetry(`${API_BASE}/dlq/${jobId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to delete job: ${res.status} ${res.statusText} - ${text}`);
+  }
+}
+
+export async function clearDlq(): Promise<void> {
+  const res = await fetchWithRetry(`${API_BASE}/dlq/clear`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to clear DLQ: ${res.status} ${res.statusText} - ${text}`);
   }
 }

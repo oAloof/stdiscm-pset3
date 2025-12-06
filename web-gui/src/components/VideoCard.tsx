@@ -20,7 +20,7 @@ export default function VideoCard({ video, onDelete }: VideoCardProps) {
   const handleMouseEnter = useCallback(() => {
     hoverTimer.current = setTimeout(() => {
       setIsHovering(true);
-    }, 300);
+    }, 700);
   }, []);
 
   const handleMouseLeave = useCallback(() => {
