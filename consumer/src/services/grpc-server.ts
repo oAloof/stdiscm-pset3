@@ -2,10 +2,11 @@ import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { VideoChunk, UploadResponse, QueueStatusResponse } from '../../proto/types';
-import { VideoQueue } from './queue';
-import { Logger } from './logger';
-import { VideoRegistry } from './video-registry';
+import { VideoChunk, UploadResponse, QueueStatusResponse } from '../../../proto/types';
+import { VideoQueue } from './../core/queue';
+
+import { Logger } from '../utils/logger';
+import { VideoRegistry } from '../core/video-registry';
 
 const logger = new Logger('gRPC-Server');
 const registry = VideoRegistry.getInstance();
@@ -14,7 +15,7 @@ const registry = VideoRegistry.getInstance();
 const queueMaxSize = parseInt(process.env.QUEUE_MAX_SIZE || '10', 10);
 export const videoQueue = VideoQueue.getInstance(queueMaxSize);
 
-const PROTO_PATH = path.join(__dirname, '../../proto/video_upload.proto');
+const PROTO_PATH = path.join(__dirname, '../../../proto/video_upload.proto');
 
 /**
  * Handle streaming video upload from producer
@@ -167,7 +168,7 @@ function checkQueueStatus(call: grpc.ServerUnaryCall<any, QueueStatusResponse>, 
 export function startGrpcServer(): void {
   // Load proto file
   const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
-    keepCase: false,  // Allow auto-conversion: snake_case → camelCase
+    keepCase: false,  // Allow auto-conversion: snake_case -> camelCase
     longs: String,
     enums: String,
     defaults: true,

@@ -1,7 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { Logger } from './logger';
+import { VideoRegistry } from "../core/video-registry";
+import { Logger } from "../utils/logger";
+import { UPLOAD_DIR } from '../config';
 
 const logger = new Logger('FileHandler');
 
@@ -50,10 +52,10 @@ export class FileHandler {
 
       logger.debug(`Saving video to temp file: ${tempPath}`);
 
-      // Step 1: Write to temporary file
+
       await fs.promises.writeFile(tempPath, videoData);
 
-      // Step 2: Validate written file
+
       const isValid = await this.validateFile(tempPath, videoData.length);
       if (!isValid) {
         // Clean up temp file
@@ -61,7 +63,6 @@ export class FileHandler {
         throw new Error('File validation failed after write');
       }
 
-      // Step 3: Atomic rename (POSIX atomic operation)
       await fs.promises.rename(tempPath, finalPath);
 
       logger.debug(`Atomically renamed to: ${finalPath}`);
@@ -100,7 +101,7 @@ export class FileHandler {
     // Extract first 8 characters of UUID
     const shortId = videoId.substring(0, 8);
 
-    // Generate timestamp (milliseconds since epoch)
+    // Generate timestamp
     const timestamp = Date.now();
 
     // Sanitize original filename (remove unsafe characters)

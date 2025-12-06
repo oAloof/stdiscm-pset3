@@ -1,9 +1,10 @@
-import { VideoQueue, VideoJob } from './queue';
-import { Logger } from './logger';
-import { DeadLetterQueue } from './dead-letter-queue';
-import { VideoRegistry } from './video-registry';
+import { VideoQueue, VideoJob } from '../core/queue';
+
+import { Logger } from '../utils/logger';
+import { DeadLetterQueue } from '../core/dead-letter-queue';
+import { VideoRegistry } from '../core/video-registry';
 import { FileHandler } from './file-handler';
-import { generatePreview, getPreviewFilename, validateVideoFile } from "./video-processor";
+import { generatePreview, getPreviewFilename, validateVideoFile } from "../video-processor";
 import path from "path";
 
 // DLQ Configuration (loaded once)
@@ -103,9 +104,8 @@ export async function processJobWithRetry(
         }
       }
 
-
       return; // Job processed successfully
-
+      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 

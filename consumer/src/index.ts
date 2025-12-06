@@ -3,10 +3,10 @@ import dotenv from 'dotenv';
 // Load environment variables FIRST
 dotenv.config();
 
-import { startGrpcServer, videoQueue } from './grpc-server';
+import { startGrpcServer, videoQueue } from './services/grpc-server';
 import { startApiServer } from './api-server';
-import { Logger } from './logger';
-import { createConsumerPool, shutdownConsumers } from './consumer';
+import { Logger } from './utils/logger';
+import { createConsumerPool, shutdownConsumers } from './services/consumer';
 
 const logger = new Logger('Main');
 

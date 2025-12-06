@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { Logger } from './logger';
+import { Logger } from "../utils/logger";
 
 const logger = new Logger('VideoRegistry');
 

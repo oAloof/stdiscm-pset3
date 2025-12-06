@@ -21,7 +21,7 @@ export function getMimeType(filename: string): string {
 }
 
 /**
- * Validate file path to prevent path traversal attacks
+ * Validate file path to prevent path traversal
  * @returns Validated absolute path or null if invalid
  */
 export function validateFilePath(filename: string, baseDir: string): string | null {
