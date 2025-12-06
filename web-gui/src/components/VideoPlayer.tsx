@@ -107,16 +107,6 @@ export default function VideoPlayer({ video, isOpen, onClose }: VideoPlayerProps
               <p className="text-sm text-gray-400 mt-1">
                 <span className="font-semibold">Uploaded:</span> {new Date(video.uploadTime).toLocaleString()}
               </p>
-              <p className="text-sm text-gray-400">
-                <span className="font-semibold">Size:</span> {quality === 'original'
-                  ? (video.fileSize / (1024 * 1024)).toFixed(2)
-                  : ((video.compressedSize || 0) / (1024 * 1024)).toFixed(2)} MB
-                {quality === 'compressed' && video.compressedSize && (
-                  <span className="ml-2 text-green-500 text-xs">
-                    ({Math.round((1 - (video.compressedSize / video.fileSize)) * 100)}% smaller)
-                  </span>
-                )}
-              </p>
             </div>
 
             {video.hasCompressed && (
