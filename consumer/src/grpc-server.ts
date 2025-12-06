@@ -5,8 +5,10 @@ import * as crypto from 'crypto';
 import { VideoChunk, UploadResponse, QueueStatusResponse } from '../../proto/types';
 import { VideoQueue } from './queue';
 import { Logger } from './logger';
+import { VideoRegistry } from './video-registry';
 
 const logger = new Logger('gRPC-Server');
+const registry = VideoRegistry.getInstance();
 
 // Initialize queue
 const queueMaxSize = parseInt(process.env.QUEUE_MAX_SIZE || '10', 10);
@@ -68,15 +70,35 @@ function uploadVideo(call: grpc.ServerReadableStream<VideoChunk, UploadResponse>
           return;
         }
         logger.debug(`[Producer ${producerId}] MD5 hash verified for ${filename}`);
+
+        // Check for duplicates BEFORE queueing
+        if (registry.isDuplicate(expectedHash)) {
+          const existingEntry = registry.getEntry(expectedHash);
+          const uploadTime = existingEntry?.uploadedAt
+            ? new Date(existingEntry.uploadedAt).toLocaleString()
+            : 'unknown time';
+          logger.warn(`[Producer ${producerId}] Duplicate detected for ${filename}`);
+          logger.warn(`[Producer ${producerId}] Original: ${existingEntry?.filename} uploaded at ${uploadTime}`);
+
+          const response: UploadResponse = {
+            success: false,
+            message: `Duplicate video detected. Original file: ${existingEntry?.filename} (uploaded at ${uploadTime})`,
+            video_id: '',
+            queue_full: false
+          };
+          callback(null, response);
+          return;
+        }
       } else {
-        logger.warn(`[Producer ${producerId}] No MD5 hash provided for ${filename}, skipping verification`);
+        logger.warn(`[Producer ${producerId}] No MD5 hash provided for ${filename}, skipping verification and duplicate check`);
       }
 
       // Attempt to enqueue the video
       const jobAdded = videoQueue.enqueue({
         filename: filename,
         data: completeVideo,
-        producerId: producerId
+        producerId: producerId,
+        md5Hash: expectedHash || undefined
       });
 
       if (!jobAdded) {
@@ -89,6 +111,11 @@ function uploadVideo(call: grpc.ServerReadableStream<VideoChunk, UploadResponse>
         };
         callback(null, response);
         return;
+      }
+
+      // Register the hash after successful enqueue
+      if (expectedHash) {
+        registry.register(expectedHash, filename, 'pending', producerId);
       }
 
       logger.info(`[Producer ${producerId}] Queued ${filename} for processing`);

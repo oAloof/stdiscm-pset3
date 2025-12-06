@@ -6,9 +6,11 @@ import * as path from 'path';
 import { Logger } from './logger';
 import { DeadLetterQueue } from './dead-letter-queue';
 import { VideoJob } from './queue';
+import { VideoRegistry } from './video-registry';
 
 const logger = new Logger('Worker');
 const dlq = DeadLetterQueue.getInstance();
+const registry = VideoRegistry.getInstance();
 
 // Load environment variables
 dotenv.config();
@@ -41,6 +43,11 @@ async function processJobWithRetry(job: VideoJob, uploadDir: string): Promise<vo
 
       // Attempt to write file
       fs.writeFileSync(filepath, job.data);
+
+      // Update registry with actual file path
+      if (job.md5Hash) {
+        registry.updatePath(job.md5Hash, filepath);
+      }
 
       logger.info(`Saved ${savedFilename}`);
       return;

@@ -6,6 +6,7 @@ export interface VideoJob {
   data: Buffer;
   producerId: number;
   timestamp: number;
+  md5Hash?: string;
 }
 
 export class VideoQueue {

@@ -5,6 +5,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { VideoQueue } from "./queue";
 import { DeadLetterQueue } from "./dead-letter-queue";
+import { VideoRegistry } from "./video-registry";
 import { Logger } from "./logger";
 
 dotenv.config();
@@ -131,6 +132,7 @@ app.get("/api/queue/status", (req, res) => {
     res.status(500).json({ error: "Failed to get queue status" });
   }
 });
+
 /**
  * GET /api/dlq/status
  * Get Dead Letter Queue status and failed jobs
@@ -155,6 +157,72 @@ app.get("/api/dlq/status", (req, res) => {
   } catch (err) {
     logger.error("Failed to get DLQ status:", err);
     res.status(500).json({ error: "Failed to get DLQ status" });
+  }
+});
+
+/**
+ * GET /api/registry/status
+ * Get hash registry status and entries
+ */
+app.get("/api/registry/status", (req, res) => {
+  try {
+    const registry = VideoRegistry.getInstance();
+    const entries = registry.getAll();
+
+    res.json({
+      size: registry.getSize(),
+      entries: entries.map(({ hash, entry }) => ({
+        hash: hash.substring(0, 8) + '...',  // Truncate for readability
+        fullHash: hash,
+        filename: entry.filename,
+        path: entry.path,
+        producerId: entry.producerId,
+        uploadedAt: entry.uploadedAt
+      }))
+    });
+  } catch (err) {
+    logger.error("Failed to get registry status:", err);
+    res.status(500).json({ error: "Failed to get registry status" });
+  }
+});
+
+/**
+ * POST /api/registry/cleanup
+ * Remove entries for files that no longer exist on disk
+ */
+app.post("/api/registry/cleanup", (req, res) => {
+  try {
+    const registry = VideoRegistry.getInstance();
+    const removedCount = registry.validateAndCleanup();
+
+    res.json({
+      message: `Cleanup complete`,
+      removedEntries: removedCount,
+      remainingEntries: registry.getSize()
+    });
+  } catch (err) {
+    logger.error("Failed to cleanup registry:", err);
+    res.status(500).json({ error: "Failed to cleanup registry" });
+  }
+});
+
+/**
+ * DELETE /api/registry/clear
+ * Clear all entries from the registry
+ */
+app.delete("/api/registry/clear", (req, res) => {
+  try {
+    const registry = VideoRegistry.getInstance();
+    const previousSize = registry.getSize();
+    registry.clear();
+
+    res.json({
+      message: "Registry cleared",
+      clearedEntries: previousSize
+    });
+  } catch (err) {
+    logger.error("Failed to clear registry:", err);
+    res.status(500).json({ error: "Failed to clear registry" });
   }
 });
 
