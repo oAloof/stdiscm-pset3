@@ -24,14 +24,24 @@ function uploadVideo(call: grpc.ServerReadableStream<VideoChunk, UploadResponse>
   let expectedHash = '';
 
   call.on('data', (chunk: VideoChunk) => {
-    filename = chunk.filename;
-    producerId = chunk.producer_id;
-    if (chunk.md5_hash) {
-      expectedHash = chunk.md5_hash;
+    // Handle Metadata Chunk (first chunk only)
+    if (chunk.metadata) {
+      filename = chunk.metadata.filename;
+      producerId = chunk.metadata.producerId;
+      if (chunk.metadata.md5Hash) {
+        expectedHash = chunk.metadata.md5Hash;
+      }
+      logger.debug(`[Producer ${producerId}] Received metadata for ${filename}`);
+      return; // Exit early, do not try to read .data
     }
-    chunks.push(chunk.data);
 
-    logger.debug(`[Producer ${producerId}] Received chunk ${chunk.chunk_number} for ${filename}`);
+    // Handle Data Chunk (all subsequent chunks)
+    if (chunk.data) {
+      chunks.push(chunk.data);
+      logger.debug(`[Producer ${producerId}] Received chunk ${chunk.chunk_number} for ${filename}`);
+    } else {
+      logger.warn(`Received chunk with no metadata and no data`);
+    }
 
     if (chunk.is_last) {
       logger.debug(`[Producer ${producerId}] Received last chunk for ${filename}, reassembling...`);
@@ -130,7 +140,7 @@ function checkQueueStatus(call: grpc.ServerUnaryCall<any, QueueStatusResponse>, 
 export function startGrpcServer(): void {
   // Load proto file
   const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
-    keepCase: true,
+    keepCase: false,  // Allow auto-conversion: snake_case → camelCase
     longs: String,
     enums: String,
     defaults: true,

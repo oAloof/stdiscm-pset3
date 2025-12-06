@@ -11,7 +11,7 @@ const PROTO_PATH = path.resolve(process.cwd(), '../proto/video_upload.proto');
 logger.info(`Resolved PROTO_PATH: ${PROTO_PATH}`);
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
-  keepCase: true,
+  keepCase: false,
   longs: String,
   enums: String,
   defaults: true,

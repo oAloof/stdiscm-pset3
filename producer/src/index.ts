@@ -83,6 +83,17 @@ async function startProducerThread(id: number, folders: string[]) {
                 }
               });
 
+              // First chunk: metadata only
+              stream.write({
+                chunk_number: 0,
+                is_last: false,
+                metadata: {
+                  filename: meta.filename,
+                  producerId: id,
+                  md5Hash: hash
+                }
+              });
+
               const fileStream = createFileStream(videoPath, { highWaterMark: CHUNK_SIZE });
               let chunkNum = 0;
 
@@ -90,12 +101,9 @@ async function startProducerThread(id: number, folders: string[]) {
                 const dataBuffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
                 chunkNum++;
                 const canWrite = stream.write({
-                  filename: meta.filename,
-                  data: dataBuffer,
                   chunk_number: chunkNum,
                   is_last: false,
-                  producer_id: id,
-                  md5_hash: hash
+                  data: dataBuffer
                 });
 
                 if (!canWrite) {
@@ -107,12 +115,9 @@ async function startProducerThread(id: number, folders: string[]) {
               fileStream.on('end', () => {
                 // Send final empty chunk with is_last=true
                 stream.write({
-                  filename: meta.filename,
-                  data: Buffer.alloc(0),
                   chunk_number: chunkNum + 1,
                   is_last: true,
-                  producer_id: id,
-                  md5_hash: hash
+                  data: Buffer.alloc(0)
                 });
                 stream.end();
               });
