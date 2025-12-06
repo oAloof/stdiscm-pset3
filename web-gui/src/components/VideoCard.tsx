@@ -10,7 +10,7 @@ interface VideoCardProps {
 
 export default function VideoCard({ video, onDelete }: VideoCardProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const hoverTimer = useRef<NodeJS.Timeout | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isHovering, setIsHovering] = useState(false);
   const [previewLoaded, setPreviewLoaded] = useState(false);
@@ -91,9 +91,8 @@ export default function VideoCard({ video, onDelete }: VideoCardProps) {
               muted
               playsInline
               preload="metadata"
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-                previewLoaded ? "opacity-100" : "opacity-0"
-              }`}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${previewLoaded ? "opacity-100" : "opacity-0"
+                }`}
               onLoadedData={handlePreviewLoaded}
             />
           )}
