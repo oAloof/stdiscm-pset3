@@ -7,6 +7,7 @@ import { VideoQueue } from "./queue";
 import { DeadLetterQueue } from "./dead-letter-queue";
 import { VideoRegistry } from "./video-registry";
 import { Logger } from "./logger";
+import { validateFilePath, streamVideoWithRangeSupport } from "./streaming-utils";
 
 dotenv.config();
 
@@ -51,7 +52,6 @@ function buildVideoList() {
       uploadTime: stats.mtime.toISOString(),
       fileSize: stats.size,
       hasPreview: fs.existsSync(previewPath),
-
       videoUrl: `/videos/${filename}`,
       previewUrl: `/videos/${filename}/preview`
     };
@@ -86,32 +86,30 @@ app.get("/api/videos/:id", (req, res) => {
 
 /**
  * GET /videos/:filename
- * Stream full video file
+ * Stream full video file with Range request support
  */
 app.get("/videos/:filename", (req, res) => {
-  const filePath = path.join(UPLOAD_DIR, req.params.filename);
+  const filePath = validateFilePath(req.params.filename, UPLOAD_DIR);
 
-  if (!fs.existsSync(filePath)) {
+  if (!filePath) {
     return res.status(404).send("Video not found");
   }
 
-  res.writeHead(200, { "Content-Type": "video/mp4" });
-  fs.createReadStream(filePath).pipe(res);
+  streamVideoWithRangeSupport(filePath, req.params.filename, req, res);
 });
 
 /**
  * GET /videos/:filename/preview
- * Stream preview clip
+ * Stream preview clip with Range request support
  */
 app.get("/videos/:filename/preview", (req, res) => {
-  const previewPath = path.join(PREVIEW_DIR, req.params.filename);
+  const previewPath = validateFilePath(req.params.filename, PREVIEW_DIR);
 
-  if (!fs.existsSync(previewPath)) {
+  if (!previewPath) {
     return res.status(404).send("Preview not found");
   }
 
-  res.writeHead(200, { "Content-Type": "video/mp4" });
-  fs.createReadStream(previewPath).pipe(res);
+  streamVideoWithRangeSupport(previewPath, req.params.filename, req, res);
 });
 
 /**
@@ -223,6 +221,180 @@ app.delete("/api/registry/clear", (req, res) => {
   } catch (err) {
     logger.error("Failed to clear registry:", err);
     res.status(500).json({ error: "Failed to clear registry" });
+  }
+});
+
+/**
+ * GET /api/health
+ * Health check endpoint for load balancers and monitoring
+ */
+app.get("/api/health", (req, res) => {
+  try {
+    const queue = VideoQueue.getInstance();
+    const dlq = DeadLetterQueue.getInstance();
+    const registry = VideoRegistry.getInstance();
+
+    res.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      services: {
+        queue: {
+          size: queue.getSize(),
+          maxSize: queue.getMaxSize(),
+          healthy: !queue.isFull()
+        },
+        dlq: {
+          size: dlq.getSize(),
+          healthy: true
+        },
+        registry: {
+          size: registry.getSize(),
+          healthy: true
+        }
+      }
+    });
+  } catch (err) {
+    logger.error("Health check failed:", err);
+    res.status(500).json({ status: "unhealthy", error: "Health check failed" });
+  }
+});
+
+/**
+ * DELETE /api/videos/:id
+ * Delete a video by ID
+ */
+app.delete("/api/videos/:id", (req, res) => {
+  try {
+    const id = req.params.id;
+    const videos = buildVideoList();
+    const video = videos.find(v => v.id === id);
+
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    const filePath = path.join(UPLOAD_DIR, video.originalFilename);
+    const previewPath = path.join(PREVIEW_DIR, video.originalFilename);
+
+    // Delete the video file
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      logger.info(`Deleted video: ${video.originalFilename}`);
+    }
+
+    // Delete the preview if it exists
+    if (fs.existsSync(previewPath)) {
+      fs.unlinkSync(previewPath);
+      logger.info(`Deleted preview: ${video.originalFilename}`);
+    }
+
+    // Clean up registry entry if it exists
+    const registry = VideoRegistry.getInstance();
+    registry.validateAndCleanup();
+
+    res.json({
+      message: "Video deleted successfully",
+      filename: video.originalFilename
+    });
+  } catch (err) {
+    logger.error("Failed to delete video:", err);
+    res.status(500).json({ error: "Failed to delete video" });
+  }
+});
+
+/**
+ * POST /api/dlq/retry/:jobId
+ * Retry a failed job from the Dead Letter Queue
+ */
+app.post("/api/dlq/retry/:jobId", (req, res) => {
+  try {
+    const jobId = req.params.jobId;
+    const dlq = DeadLetterQueue.getInstance();
+    const queue = VideoQueue.getInstance();
+
+    const failedJobs = dlq.getAll();
+    const failedJob = failedJobs.find(f => f.job.id === jobId);
+
+    if (!failedJob) {
+      return res.status(404).json({ error: "Job not found in DLQ" });
+    }
+
+    // Check if queue has space
+    if (queue.isFull()) {
+      return res.status(503).json({ error: "Queue is full, cannot retry job" });
+    }
+
+    // Re-enqueue the job
+    const jobAdded = queue.enqueue({
+      filename: failedJob.job.filename,
+      data: failedJob.job.data,
+      producerId: failedJob.job.producerId,
+      md5Hash: failedJob.job.md5Hash
+    });
+
+    if (!jobAdded) {
+      return res.status(503).json({ error: "Failed to re-enqueue job" });
+    }
+
+    // Remove from DLQ
+    dlq.removeById(jobId);
+
+    logger.info(`Retried job ${jobId} from DLQ`);
+
+    res.json({
+      message: "Job re-queued successfully",
+      jobId: jobId,
+      filename: failedJob.job.filename
+    });
+  } catch (err) {
+    logger.error("Failed to retry job:", err);
+    res.status(500).json({ error: "Failed to retry job" });
+  }
+});
+
+/**
+ * DELETE /api/dlq/:jobId
+ * Remove a specific job from the Dead Letter Queue
+ */
+app.delete("/api/dlq/:jobId", (req, res) => {
+  try {
+    const jobId = req.params.jobId;
+    const dlq = DeadLetterQueue.getInstance();
+
+    const removed = dlq.removeById(jobId);
+
+    if (!removed) {
+      return res.status(404).json({ error: "Job not found in DLQ" });
+    }
+
+    res.json({
+      message: "Job removed from DLQ",
+      jobId: jobId
+    });
+  } catch (err) {
+    logger.error("Failed to remove job from DLQ:", err);
+    res.status(500).json({ error: "Failed to remove job from DLQ" });
+  }
+});
+
+/**
+ * DELETE /api/dlq/clear
+ * Clear all jobs from the Dead Letter Queue
+ */
+app.delete("/api/dlq/clear", (req, res) => {
+  try {
+    const dlq = DeadLetterQueue.getInstance();
+    const previousSize = dlq.getSize();
+    dlq.clear();
+
+    res.json({
+      message: "DLQ cleared",
+      clearedJobs: previousSize
+    });
+  } catch (err) {
+    logger.error("Failed to clear DLQ:", err);
+    res.status(500).json({ error: "Failed to clear DLQ" });
   }
 });
 
