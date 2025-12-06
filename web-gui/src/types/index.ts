@@ -13,6 +13,7 @@ export interface Video {
   hasPreview: boolean;
   videoUrl: string;
   previewUrl: string;
+  thumbnailUrl: string;
 }
 
 /**

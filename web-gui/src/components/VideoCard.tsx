@@ -1,11 +1,11 @@
 import { useRef, useState, useCallback } from "react";
 import type { Video } from "../types";
 import VideoPlayer from "./VideoPlayer";
-import { deleteVideo } from "../api/client"; 
+import { deleteVideo } from "../api/client";
 
 interface VideoCardProps {
   video: Video;
-  onDelete: (id: string) => void; 
+  onDelete: (id: string) => void;
 }
 
 export default function VideoCard({ video, onDelete }: VideoCardProps) {
@@ -14,8 +14,8 @@ export default function VideoCard({ video, onDelete }: VideoCardProps) {
 
   const [isHovering, setIsHovering] = useState(false);
   const [previewLoaded, setPreviewLoaded] = useState(false);
-  const [playerOpen, setPlayerOpen] = useState(false); 
-  const [deleting, setDeleting] = useState(false); 
+  const [playerOpen, setPlayerOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleMouseEnter = useCallback(() => {
     hoverTimer.current = setTimeout(() => {
@@ -57,8 +57,8 @@ export default function VideoCard({ video, onDelete }: VideoCardProps) {
 
     try {
       setDeleting(true);
-      await deleteVideo(video.id); 
-      onDelete(video.id); 
+      await deleteVideo(video.id);
+      onDelete(video.id);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete video");
     } finally {
@@ -69,16 +69,15 @@ export default function VideoCard({ video, onDelete }: VideoCardProps) {
   return (
     <>
       <div
-        className={`card w-80 bg-base-100 shadow-sm hover:shadow-xl transition cursor-pointer relative ${
-          deleting ? "opacity-50 pointer-events-none" : ""
-        }`}
+        className={`card w-80 bg-base-100 shadow-sm hover:shadow-xl transition cursor-pointer relative ${deleting ? "opacity-50 pointer-events-none" : ""
+          }`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
         <div className="relative w-full h-48 bg-base-200 overflow-hidden rounded-t-lg">
           {!isHovering && (
             <img
-              src={video.previewUrl}
+              src={video.thumbnailUrl}
               alt={video.originalFilename}
               className="w-full h-full object-cover"
             />

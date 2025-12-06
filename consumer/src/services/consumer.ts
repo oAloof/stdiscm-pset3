@@ -4,9 +4,9 @@ import { Logger } from '../utils/logger';
 import { DeadLetterQueue } from '../core/dead-letter-queue';
 import { VideoRegistry } from '../core/video-registry';
 import { FileHandler } from './file-handler';
-import { generatePreview, getPreviewFilename, validateVideoFile } from "../video-processor";
+import { generatePreview, getPreviewFilename, validateVideoFile } from "../utils/video-processor";
 import path from "path";
-import { UPLOAD_DIR, PREVIEW_DIR } from '../config';
+import { UPLOAD_DIR, PREVIEW_DIR, THUMBNAIL_DIR } from '../config';
 
 // DLQ Configuration
 const MAX_RETRIES = parseInt(process.env.DLQ_MAX_RETRIES || '3', 10);
@@ -101,6 +101,24 @@ export async function processJobWithRetry(
           }
         } catch (err) {
           logger.error(`Preview generation failed for ${result.filepath}: ${err}`);
+        }
+
+
+
+        // -------------------- GENERATE THUMBNAIL --------------------
+        try {
+          const { getThumbnailFilename, generateThumbnail } = require("../utils/video-processor");
+          const thumbnailFilename = path.basename(getThumbnailFilename(result.filepath));
+          const thumbnailPath = path.join(THUMBNAIL_DIR, thumbnailFilename);
+          await generateThumbnail(result.filepath, thumbnailPath);
+          logger.info(`Thumbnail created: ${thumbnailPath}`);
+
+          // Update registry
+          if (job.md5Hash) {
+            registry.updateThumbnail(job.md5Hash, thumbnailPath);
+          }
+        } catch (err) {
+          logger.error(`Thumbnail generation failed for ${result.filepath}: ${err}`);
         }
       }
 

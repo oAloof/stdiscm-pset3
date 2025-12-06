@@ -12,6 +12,7 @@ export interface VideoEntry {
   path: string;
   producerId: number;
   previewPath?: string;
+  thumbnailPath?: string;
 }
 
 /**
@@ -163,6 +164,16 @@ export class VideoRegistry {
             logger.warn(`Failed to delete orphaned preview ${entry.previewPath}: ${err}`);
           }
         }
+
+        // Clean up orphaned thumbnail file if it exists
+        if (entry.thumbnailPath && fs.existsSync(entry.thumbnailPath)) {
+          try {
+            fs.unlinkSync(entry.thumbnailPath);
+            logger.info(`Cleaned up orphaned thumbnail: ${entry.thumbnailPath}`);
+          } catch (err) {
+            logger.warn(`Failed to delete orphaned thumbnail ${entry.thumbnailPath}: ${err}`);
+          }
+        }
       }
     });
 
@@ -234,6 +245,16 @@ export class VideoRegistry {
       entry.previewPath = previewPath;
       this.registry.set(hash, entry);
       logger.debug(`Updated preview for hash ${hash.substring(0, 8)}... to ${previewPath}`);
+      this.saveToFile();
+    }
+  }
+
+  public updateThumbnail(hash: string, thumbnailPath: string): void {
+    const entry = this.registry.get(hash);
+    if (entry) {
+      entry.thumbnailPath = thumbnailPath;
+      this.registry.set(hash, entry);
+      logger.debug(`Updated thumbnail for hash ${hash.substring(0, 8)}... to ${thumbnailPath}`);
       this.saveToFile();
     }
   }

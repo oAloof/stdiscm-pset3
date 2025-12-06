@@ -66,6 +66,7 @@ temp/
 # Runtime state files
 consumer/video-registry.json
 consumer/previews/
+consumer/thumbnails/
 
 # Test coverage
 coverage/

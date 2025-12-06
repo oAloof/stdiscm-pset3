@@ -5,7 +5,7 @@ import { validateFilePath, streamVideoWithRangeSupport } from "../utils/streamin
 import { VideoRegistry } from "../core/video-registry";
 import { Logger } from "../utils/logger";
 
-import { UPLOAD_DIR, PREVIEW_DIR } from "../config";
+import { UPLOAD_DIR, PREVIEW_DIR, THUMBNAIL_DIR } from "../config";
 
 const logger = new Logger('VideoController');
 
@@ -30,6 +30,8 @@ export class VideoController {
       const ext = path.extname(filename);
       const previewFilename = filename.replace(ext, `_preview${ext}`);
       const previewPath = path.join(PREVIEW_DIR, previewFilename);
+      const thumbnailFilename = filename.replace(ext, `_thumbnail.jpg`);
+      const thumbnailPath = path.join(THUMBNAIL_DIR, thumbnailFilename);
 
       return {
         id,
@@ -38,7 +40,8 @@ export class VideoController {
         fileSize: stats.size,
         hasPreview: fs.existsSync(previewPath),
         videoUrl: `/videos/${filename}`,
-        previewUrl: `/videos/${filename}/preview`
+        previewUrl: `/videos/${filename}/preview`,
+        thumbnailUrl: `/videos/${filename}/thumbnail`
       };
     });
   }
@@ -88,6 +91,22 @@ export class VideoController {
     streamVideoWithRangeSupport(previewPath, previewFilename, req, res);
   }
 
+  static streamThumbnail(req: Request, res: Response) {
+    // Construct thumbnail filename from original filename
+    const originalFilename = req.params.filename;
+    const ext = path.extname(originalFilename);
+    const thumbnailFilename = originalFilename.replace(ext, `_thumbnail.jpg`);
+
+    const thumbnailPath = validateFilePath(thumbnailFilename, THUMBNAIL_DIR);
+
+    if (!thumbnailPath) {
+      return res.status(404).send("Thumbnail not found");
+    }
+
+    // Serve static image with absolute path
+    res.sendFile(path.resolve(thumbnailPath));
+  }
+
   static deleteVideo(req: Request, res: Response) {
     try {
       const id = req.params.id;
@@ -99,7 +118,9 @@ export class VideoController {
       }
 
       const filePath = path.join(UPLOAD_DIR, video.originalFilename);
-      const previewPath = path.join(PREVIEW_DIR, video.originalFilename);
+      const ext = path.extname(video.originalFilename);
+      const previewPath = path.join(PREVIEW_DIR, video.originalFilename.replace(ext, `_preview${ext}`));
+      const thumbnailPath = path.join(THUMBNAIL_DIR, video.originalFilename.replace(ext, `_thumbnail.jpg`));
 
       // Delete the video file
       if (fs.existsSync(filePath)) {
@@ -110,7 +131,13 @@ export class VideoController {
       // Delete the preview if it exists
       if (fs.existsSync(previewPath)) {
         fs.unlinkSync(previewPath);
-        logger.info(`Deleted preview: ${video.originalFilename}`);
+        logger.info(`Deleted preview: ${previewPath}`);
+      }
+
+      // Delete the thumbnail if it exists
+      if (fs.existsSync(thumbnailPath)) {
+        fs.unlinkSync(thumbnailPath);
+        logger.info(`Deleted thumbnail: ${thumbnailPath}`);
       }
 
       // Clean up registry entry if it exists

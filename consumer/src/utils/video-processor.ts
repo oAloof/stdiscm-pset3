@@ -47,7 +47,7 @@ export async function generatePreview(videoPath: string, outputPath: string): Pr
         resolve(); // never block consumer
       });
 
-      ffmpeg.stderr.on("data", () => {}); // ignore output to avoid buffer overflow
+      ffmpeg.stderr.on("data", () => { }); // ignore output to avoid buffer overflow
 
       ffmpeg.on("close", (code) => {
         if (code !== 0) {
@@ -60,6 +60,52 @@ export async function generatePreview(videoPath: string, outputPath: string): Pr
     } catch (err) {
       console.error("[PREVIEW GENERATION FAILED]", err);
       resolve(); // prevent blocking upload
+    }
+  });
+}
+
+/**
+ * Build thumbnail filename
+ */
+export function getThumbnailFilename(originalPath: string): string {
+  const ext = path.extname(originalPath);
+  const base = originalPath.replace(ext, "");
+  return `${base}_thumbnail.jpg`;
+}
+
+/**
+ * Generate a static thumbnail image (frame at 0s)
+ */
+export async function generateThumbnail(videoPath: string, outputPath: string): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const ffmpeg = spawn(FFMPEG_PATH, [
+        "-y",             // overwrite
+        "-i", videoPath,  // input
+        "-ss", "00:00:00", // seek to start
+        "-vframes", "1",  // single frame
+        "-q:v", "2",      // quality (2-31, lower is better)
+        outputPath,
+      ]);
+
+      ffmpeg.on("error", (err) => {
+        console.error("[FFMPEG THUMBNAIL ERROR]", err);
+        resolve();
+      });
+
+      ffmpeg.stderr.on("data", () => { }); // ignore
+
+      ffmpeg.on("close", (code) => {
+        if (code !== 0) {
+          console.error(`[FFMPEG EXIT CODE ${code}] Failed to generate thumbnail`);
+        } else {
+          console.log("Thumbnail generated:", outputPath);
+        }
+        resolve();
+      });
+    } catch (err) {
+      console.error("[THUMBNAIL GENERATION FAILED]", err);
+      resolve();
     }
   });
 }
